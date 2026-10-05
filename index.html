@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Management System</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; background: #f3f6fa; color: #1c2733; }
+  header { background: #13795b; color: #fff; padding: 16px 24px; }
+  header h1 { margin: 0; font-size: 22px; }
+  main { max-width: 960px; margin: 20px auto; padding: 0 16px; }
+  section { background: #fff; border: 1px solid #d5dde5; border-radius: 6px; padding: 16px; margin-bottom: 20px; }
+  h2 { margin: 0 0 12px; font-size: 17px; }
+  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  input { padding: 8px; border: 1px solid #aab7c4; border-radius: 4px; font-size: 14px; }
+  button { padding: 8px 14px; border: 0; border-radius: 4px; cursor: pointer; color: #fff; background: #13795b; }
+  .edit { background: #1f5fbf; } .del { background: #b3261e; } .cancel { background: #6b7785; }
+  .wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e3e9ef; white-space: nowrap; }
+  th { background: #eef2f6; }
+  #msg { min-height: 18px; font-weight: bold; color: #13795b; }
+</style>
+</head>
+<body>
+<header><h1>Student Management System</h1></header>
+<main>
+  <section>
+    <h2 id="formTitle">Add student</h2>
+    <p id="msg"></p>
+    <form id="form">
+      <input id="studentNo" placeholder="Student No (ST001)" required>
+      <input id="name" placeholder="Name" required>
+      <input id="email" type="email" placeholder="Email" required>
+      <input id="age" type="number" placeholder="Age" required>
+      <input id="branch" placeholder="Branch" required>
+      <input id="semester" type="number" placeholder="Semester" required>
+      <input id="cgpa" type="number" step="0.01" placeholder="CGPA" required>
+      <button type="submit" id="saveBtn">Add student</button>
+      <button type="button" class="cancel" id="cancelBtn" style="display:none">Cancel</button>
+    </form>
+  </section>
+  <section>
+    <h2>All students</h2>
+    <div class="wrap"><table>
+      <thead><tr><th>Student No</th><th>Name</th><th>Email</th><th>Age</th><th>Branch</th><th>Sem</th><th>CGPA</th><th>Actions</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <p id="count"></p>
+  </section>
+</main>
+<script>
+  let editId = null;
+  const f = ["studentNo","name","email","age","branch","semester","cgpa"];
+  const $ = (id) => document.getElementById(id);
+  const say = (t) => { $("msg").textContent = t; };
+
+  async function load() {
+    const list = await (await fetch("/students")).json();
+    $("rows").innerHTML = list.map(s => `<tr>
+      <td>${s.studentNo}</td><td>${s.name}</td><td>${s.email}</td><td>${s.age}</td>
+      <td>${s.branch}</td><td>${s.semester}</td><td>${s.cgpa}</td>
+      <td><button class="edit" onclick='startEdit(${JSON.stringify(s)})'>Edit</button>
+      <button class="del" onclick="removeStudent('${s._id}')">Delete</button></td></tr>`).join("");
+    $("count").textContent = "Total students: " + list.length;
+  }
+  function startEdit(s) {
+    editId = s._id;
+    f.forEach(k => $(k).value = s[k]);
+    $("formTitle").textContent = "Update student";
+    $("saveBtn").textContent = "Save changes";
+    $("cancelBtn").style.display = "inline-block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function resetForm() {
+    editId = null; $("form").reset();
+    $("formTitle").textContent = "Add student";
+    $("saveBtn").textContent = "Add student";
+    $("cancelBtn").style.display = "none";
+  }
+  $("cancelBtn").onclick = resetForm;
+  $("form").onsubmit = async (e) => {
+    e.preventDefault();
+    const d = {};
+    f.forEach(k => d[k] = $(k).value);
+    d.age = Number(d.age); d.semester = Number(d.semester); d.cgpa = Number(d.cgpa);
+    const res = await fetch(editId ? "/students/" + editId : "/students", {
+      method: editId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(d)
+    });
+    say((await res.json()).message);
+    resetForm(); load();
+  };
+  async function removeStudent(id) {
+    if (!confirm("Delete this student?")) return;
+    const res = await fetch("/students/" + id, { method: "DELETE" });
+    say((await res.json()).message);
+    load();
+  }
+  load();
+</script>
+</body>
+</html>
